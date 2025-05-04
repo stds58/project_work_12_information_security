@@ -40,4 +40,3 @@
 ## Outputs
 
 No outputs.
-
