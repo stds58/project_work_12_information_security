@@ -1,0 +1,6 @@
+---
+- name: Install and configure Nexus
+  hosts: nexus
+  become: true
+  roles:
+    - nexus

@@ -1,0 +1,26 @@
+formats:
+  markdown:
+    template: |-
+      # Documentation
+
+      ## Inputs
+
+      | Name | Description | Type | Default | Required |
+      |------|-------------|------|---------|:--------:|
+      {{- range .Inputs }}
+      | {{ .Name }} | {{ .Description }} | {{ .Type }} | `{{ .Default }}` | {{ if .Required }}yes{{ else }}no{{ end }} |
+      {{- end }}
+
+      ## Outputs
+
+      | Name | Description |
+      |------|-------------|
+      {{- range .Outputs }}
+      | {{ .Name }} | {{ .Description }} |
+      {{- end }}
+
+recursive:
+  enabled: true
+  exclude:
+    - ".terraform*"
+    - ".git*"

@@ -37,7 +37,7 @@ variable "core_fraction" {
 
 variable "image_id" {
   description = "Образ ОС"
-  type = string
+  type        = string
 }
 
 variable "disk_size" {
@@ -55,7 +55,12 @@ variable "disk_type" {
 variable "subnet_id" {
   description = "ID подсети"
   type        = string
-  default     = ""
+}
+
+variable "nat" {
+  description = "ID подсети"
+  type        = bool
+  default     = false
 }
 
 variable "security_group_ids" {

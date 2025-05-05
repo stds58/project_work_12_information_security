@@ -13,6 +13,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.0" # Используем последнюю стабильную версию
     }
+    http = {
+      source = "hashicorp/http"
+      version = "~> 3.0" # Проверьте актуальную версию в документации
+    }
   }
 }
 

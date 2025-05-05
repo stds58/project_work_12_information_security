@@ -20,11 +20,11 @@ resource "yandex_compute_instance" "vm" {
 
   network_interface {
     subnet_id          = var.subnet_id
-    nat                = true
+    nat                = var.nat
     security_group_ids = var.security_group_ids
   }
 
   metadata = var.metadata
-  labels = var.labels
+  labels   = var.labels
 
 }
