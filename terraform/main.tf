@@ -2,7 +2,7 @@
 module "network" {
   source = "./modules/network"
 
-  name = "uc_network"
+  network_name = "uc_network"
 }
 
 module "subnetwork" {
@@ -51,7 +51,7 @@ module "sg_bastion" {
 module "vm_bastion" {
   source = "./modules/instance"
 
-  name               = "bastion"
+  instance_name               = "bastion"
   platform_id        = "standard-v3"
   zone               = "ru-central1-a"
   cores              = 2
@@ -95,7 +95,7 @@ module "sg_vm_uc" {
 module "vm_uc" {
   source = "./modules/instance"
 
-  name               = "vm-uc"
+  instance_name               = "vm-uc"
   platform_id        = "standard-v3"
   zone               = "ru-central1-a"
   cores              = 2
@@ -180,7 +180,7 @@ module "sg_nexus" {
 module "vm_nexus" {
   source = "./modules/instance"
 
-  name               = "vm-nexus"
+  instance_name               = "vm-nexus"
   platform_id        = "standard-v3"
   zone               = "ru-central1-a"
   cores              = 4
@@ -284,7 +284,7 @@ module "sg_windows" {
 module "vm_windows" {
   source = "./modules/instance"
 
-  name               = "windows-test"
+  instance_name               = "windows-test"
   platform_id        = "standard-v3"
   zone               = "ru-central1-a"
   cores              = 2

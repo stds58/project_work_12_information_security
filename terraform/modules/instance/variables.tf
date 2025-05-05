@@ -1,5 +1,5 @@
 
-variable "name" {
+variable "instance_name" {
   description = "Имя_инстанса"
   type        = string
   default     = "vm"

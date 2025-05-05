@@ -1,6 +1,6 @@
 
 resource "yandex_compute_instance" "vm" {
-  name        = var.name
+  name        = var.instance_name
   platform_id = var.platform_id
   zone        = var.zone
 
