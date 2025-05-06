@@ -1,4 +1,17 @@
 
+resource "yandex_vpc_gateway" "nat_gateway" {
+  name = "nat-gateway"
+  shared_egress_gateway {}
+}
+
+resource "yandex_vpc_route_table" "rt" {
+  network_id = module.network.network_id
+  static_route {
+    destination_prefix = "0.0.0.0/0"
+    gateway_id         = yandex_vpc_gateway.nat_gateway.id
+  }
+}
+
 module "network" {
   source = "./modules/network"
 
@@ -12,6 +25,7 @@ module "subnetwork" {
   zone           = "ru-central1-a"
   v4_cidr_blocks = ["192.168.10.0/24"]
   network_id     = module.network.network_id
+  route_table_id = yandex_vpc_route_table.rt.id
 }
 
 data "yandex_compute_image" "ubuntu" {
@@ -88,6 +102,13 @@ module "sg_vm_uc" {
       description    = "SSH access"
       port           = 22
       v4_cidr_blocks = ["${module.vm_bastion.internal_ip_address}/32"]
+    }
+  ,
+    {
+      protocol       = "tcp"
+      description    = "HTTP access for certificates"
+      port           = 80
+      v4_cidr_blocks = ["192.168.10.0/24"] # вся внутренняя сеть
     }
   ]
 }
@@ -264,78 +285,84 @@ module "vm_nexus" {
 #  curl -kI https://nexus.uc.internal
 #"
 
-############################## windows
+############################## Linux RDP VM
 
-module "sg_windows" {
+module "sg_linux_rdp" {
   source = "./modules/security-groups"
 
   network_id          = module.network.network_id
-  security_group_name = "sg-windows"
+  security_group_name = "sg-linux-rdp"
   ingress_rules = [
+    {
+      description    = "SSH from Bastion"
+      protocol       = "tcp"
+      port           = 22
+      v4_cidr_blocks = ["${module.vm_bastion.internal_ip_address}/32"]
+    },
     {
       description    = "RDP from Bastion"
       protocol       = "tcp"
-      port           = 3389
+      port           = 3390
       v4_cidr_blocks = ["${module.vm_bastion.internal_ip_address}/32"]
+    },
+    {
+      description    = "HTTP access for testing"
+      protocol       = "tcp"
+      port           = 80
+      v4_cidr_blocks = ["192.168.10.0/24"]
     }
   ]
 }
 
-module "vm_windows" {
+module "vm_linux_rdp" {
   source = "./modules/instance"
 
-  instance_name               = "windows-test"
+  instance_name      = "linux-test"
   platform_id        = "standard-v3"
   zone               = "ru-central1-a"
   cores              = 2
   memory             = 4
   core_fraction      = 100
-  image_id           = data.yandex_compute_image.windows.id
-  disk_size          = 50
+  image_id           = data.yandex_compute_image.ubuntu.id
+  disk_size          = 20
   disk_type          = "network-ssd"
   subnet_id          = module.subnetwork.subnet_id
-  security_group_ids = [module.sg_windows.security_group_id]
+  security_group_ids = [module.sg_linux_rdp.security_group_id]
 
   metadata = {
+    ssh-keys = "ubuntu:${file("~/.ssh/terraform_20250320.pub")}"
     user-data = <<-EOF
-      #ps1
-      # Настройка RDP
-      Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-      Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+      #!/bin/bash
+      # Установка XRDP и GUI
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y xfce4 xrdp chromium-browser
 
-      # Скачивание и установка Root CA
-      $caUrl = "http://${module.vm_uc.internal_ip_address}/rootCA.crt"
-      $caPath = "$env:TEMP\rootCA.crt"
+      # Настройка XRDP
+      sed -i 's/port=3389/port=3390/g' /etc/xrdp/xrdp.ini
+      echo "xfce4-session" > /home/ubuntu/.xsession
+      chown ubuntu:ubuntu /home/ubuntu/.xsession
 
-      try {
-        Invoke-WebRequest -Uri $caUrl -OutFile $caPath -ErrorAction Stop
-        Import-Certificate -FilePath $caPath -CertStoreLocation Cert:\LocalMachine\Root -ErrorAction Stop
-        Write-Output "[SUCCESS] Root CA installed successfully"
-      } catch {
-        Write-Output "[ERROR] Failed to install Root CA: $_"
-      }
+      # Установка сертификата УЦ
+      mkdir -p /usr/local/share/ca-certificates/extra
+      curl -o /usr/local/share/ca-certificates/extra/rootCA.crt http://${module.vm_uc.internal_ip_address}/rootCA.crt
+      update-ca-certificates
 
-      # Добавление записи в hosts файл
-      $hostsEntry = "${module.vm_nexus.internal_ip_address} nexus.uc.internal"
-      if (-not (Select-String -Path $env:windir\System32\drivers\etc\hosts -Pattern "nexus.uc.internal" -Quiet)) {
-        Add-Content -Path $env:windir\System32\drivers\etc\hosts -Value "`n$hostsEntry" -Force
-      }
+      # Добавление записи в hosts
+      echo "${module.vm_nexus.internal_ip_address} nexus.uc.internal" >> /etc/hosts
 
-      # Установка Chrome для тестирования (опционально)
-      $chromeInstaller = "$env:TEMP\chrome_installer.exe"
-      if (-not (Test-Path "C:\Program Files\Google\Chrome\Application\chrome.exe")) {
-        Invoke-WebRequest "https://dl.google.com/chrome/install/latest/chrome_installer.exe" -OutFile $chromeInstaller
-        Start-Process -FilePath $chromeInstaller -Args "/silent /install" -Wait
-      }
+      # Запуск сервисов
+      systemctl enable xrdp
+      systemctl restart xrdp
     EOF
   }
 
   labels = {
-    environment = "windows-dev"
+    environment = "test-dev"
     terraform   = "true"
-    role        = "windows"
+    role        = "test-rdp"
   }
 }
+
 
 ##############################
 

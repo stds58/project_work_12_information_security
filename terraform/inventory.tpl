@@ -8,8 +8,8 @@ vm_uc ansible_host=${vm_uc_ip} ansible_user=ubuntu
 [nexus]
 vm_nexus ansible_host=${vm_nexus_ip}  ansible_user=ubuntu
 
-[windows]
-vm_windows ansible_host=${vm_windows_ip} ansible_user=ubuntu
+[test-rdp]
+vm_linux_rdp ansible_host=${vm_linux_rdp_ip} ansible_user=ubuntu
 
 
 [all:vars]

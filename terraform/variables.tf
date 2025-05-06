@@ -78,6 +78,12 @@ variable "subnet_id" {
   default     = "subnet_id"
 }
 
+variable "route_table_id" {
+  type        = string
+  description = "ID of the route table to associate"
+  default     = null
+}
+
 variable "nat" {
   description = "ID подсети"
   type        = bool

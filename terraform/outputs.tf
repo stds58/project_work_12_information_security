@@ -3,16 +3,12 @@ output "bastion_vm_external_ip" {
   value = module.vm_bastion.external_ip_address
 }
 
-output "uc_vm_internal_ip" {
-  value = module.vm_uc.internal_ip_address
-}
-
 output "nexus_vm_internal_ip" {
   value = module.vm_nexus.internal_ip_address
 }
 
-output "windows_internal_ip" {
-  value = module.vm_windows.internal_ip_address
+output "linux_rdp_internal_ip" {
+  value = module.vm_linux_rdp.internal_ip_address
 }
 
 
@@ -22,15 +18,30 @@ output "my_current_public_ip" {
 }
 
 output "ssh_connection_command" {
-  value = "ssh -i ~/.ssh/terraform_20250320 ubuntu@${module.vm_bastion.external_ip_address}"
+  value = <<EOT
+    Подключайтесь к бастиону с флагом -A (Agent Forwarding)
+    ssh -A -i ~/.ssh/terraform_20250320 ubuntu@${module.vm_bastion.external_ip_address}
+    С бастиона — к внутренней машине:
+    ssh ubuntu@${module.vm_linux_rdp.internal_ip_address}
+
+    тунель
+    ssh -i ~/.ssh/terraform_20250320 -L 33389:${module.vm_linux_rdp.internal_ip_address}:3390 ubuntu@${module.vm_bastion.external_ip_address} -N -v
+    Затем подключитесь через RDP клиент к:
+    localhost:33389
+    Логин: ubuntu
+    Пароль: (укажите при первом подключении)
+
+    Подключитесь к целевой VM через бастион:
+    ssh -i ~/.ssh/terraform_20250320 -J ubuntu@${module.vm_bastion.external_ip_address} ubuntu@${module.vm_bastion.external_ip_address}
+  EOT
 }
 
-output "rdp_connection_command" {
+output "test_nexus_command" {
   value = <<EOT
-    Сначала установите SSH-туннель:
-    ssh -i ~/.ssh/terraform_20250320 -L 33389:${module.vm_windows.internal_ip_address}:3389 ubuntu@${module.vm_bastion.external_ip_address}
-
-    Затем подключитесь через RDP к localhost:33389
+    Для тестирования Nexus после подключения по RDP:
+    1. Откройте Chromium
+    2. Перейдите по адресу: https://nexus.uc.internal
+    3. Должен появиться защищенный доступ (зеленый замок)
   EOT
 }
 
@@ -52,4 +63,16 @@ output "nexus_admin_password_command" {
   EOT
 }
 
+output "proverki" {
+  value = <<EOT
+    Проверить работу HTTP-сервера на vm-uc
+    curl -v http://${module.vm_uc.internal_ip_address}/rootCA.crt
+    Если не работает — перезапустите контейнер:
+    docker stop cert-server
+    docker rm cert-server
+    docker run -d --name cert-server -p 80:80 -v /etc/ssl/uc:/usr/share/nginx/html:ro nginx:alpine
+    На vm-linux-rdp обновить сертификаты
+    sudo update-ca-certificates --fresh
+  EOT
+}
 

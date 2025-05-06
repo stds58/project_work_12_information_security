@@ -21,3 +21,9 @@ variable "v4_cidr_blocks" {
   type        = list(string)
   default     = []
 }
+
+variable "route_table_id" {
+  type        = string
+  description = "ID of the route table to associate"
+  default     = null
+}
