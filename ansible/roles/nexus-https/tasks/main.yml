@@ -106,6 +106,10 @@
     recurse: yes
   become: yes
 
+#sudo mkdir -p /opt/sonatype/sonatype-work/nexus3/etc/
+#sudo chown -R nexus:nexus /opt/sonatype/sonatype-work
+#sudo chmod -R 755 /opt/sonatype/sonatype-work
+
 - name: Выставляем права на папку nexus
   file:
     path: "/opt/sonatype/nexus"
