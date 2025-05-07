@@ -1,0 +1,8 @@
+---
+- name: Настройка HTTPS для Nexus
+  hosts: nexus
+  become: yes
+  vars:
+    ssl_domain: "nexus"
+  roles:
+    - role: nexus-https

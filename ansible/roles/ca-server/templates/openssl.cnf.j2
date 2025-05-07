@@ -1,0 +1,53 @@
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = /root/ca
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+private_key       = $dir/private/ca.key.pem
+certificate       = $dir/certs/ca.cert.pem
+crlnumber         = $dir/crl/crlnumber
+crl               = $dir/crl/ca.crl.pem
+policy            = policy_strict
+
+[ policy_strict ]
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+prompt                  = no
+distinguished_name      = req_distinguished_name
+x509_extensions         = v3_ca
+
+[ req_distinguished_name ]
+C                       = RU
+ST                      = Moscow
+L                       = Moscow
+O                       = Example Org
+OU                      = IT
+CN                      = nexus.example
+
+[ v3_ca ]
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid:always,issuer
+basicConstraints        = critical, CA:true
+keyUsage                = critical, digitalSignature, cRLSign, keyCertSign
+
+[ server_cert ]
+# Базовые ограничения
+basicConstraints = CA:FALSE
+# Ключ используется для подписи и TLS-соединений
+keyUsage = critical, digitalSignature, keyEncipherment
+# Расширение Subject Alternative Name
+subjectAltName          = @alt_names
+
+[ alt_names ]
+DNS.1 = nexus.example

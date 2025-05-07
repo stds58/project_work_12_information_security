@@ -1,0 +1,6 @@
+---
+- name: Настройка RDP на тестовой Ubuntu ВМ
+  hosts: test-rdp
+  become: yes
+  roles:
+    - role: xrdp

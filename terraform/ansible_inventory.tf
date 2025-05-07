@@ -15,3 +15,14 @@ locals {
     }
   )
 }
+
+resource "local_file" "inventory" {
+  depends_on = [
+    module.vm_bastion,
+    module.vm_uc,
+    module.vm_nexus,
+    module.vm_linux_rdp
+  ]
+  content  = local.inventory_template
+  filename = "${path.root}/../ansible/inventory"
+}

@@ -1,6 +1,19 @@
 ---
-- name: Install and configure Nexus
+#wsl ansible-playbook -i inventory playbook.yml
+- name: Deploy Nexus with HTTPS via Nginx and custom CA
   hosts: nexus
-  become: true
+  become: yes
+  vars:
+    nexus_server_name: "nexus.example"
+    host_uc_ip: "{{ hostvars['vm_uc']['ansible_host'] }}"
+    nexus_internal_ip: "{{ hostvars['vm_nexus']['ansible_host'] }}"
+
   roles:
-    - nexus
+    - role: nexus-proxy-ssl
+      tags: nexus
+
+#wsl ansible-playbook -i inventory playbook-ca.yml
+#wsl ansible-playbook -i inventory playbook-nexus.yml
+#wsl ansible-playbook -i inventory playbook-client.yml
+#wsl ansible-playbook -i inventory playbook-rdp.yml
+

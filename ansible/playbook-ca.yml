@@ -1,0 +1,6 @@
+---
+- name: Настройка УЦ и генерация сертификатов
+  hosts: uc
+  become: yes
+  roles:
+    - role: ca-server

@@ -1,0 +1,4 @@
+# group_vars/all.yml
+
+ssl_domain: "nexus.example"
+ssl_cert_dir: "/etc/nginx/ssl"

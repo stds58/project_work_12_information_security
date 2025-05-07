@@ -1,0 +1,6 @@
+---
+- name: Установка корневого сертификата на клиент
+  hosts: test-rdp
+  become: yes
+  roles:
+    - role: install-ca-cert

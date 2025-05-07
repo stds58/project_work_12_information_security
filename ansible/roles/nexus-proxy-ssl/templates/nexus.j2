@@ -1,0 +1,23 @@
+server {
+    listen 80;
+    server_name {{ nexus_server_name }};
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name {{ nexus_server_name }};
+
+    ssl_certificate /etc/ssl/nexus/nexus.crt;
+    ssl_certificate_key /etc/ssl/nexus/nexus.key;
+    ssl_trusted_certificate /etc/ssl/nexus/rootCA.crt;
+
+    location / {
+        proxy_pass http://localhost:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
