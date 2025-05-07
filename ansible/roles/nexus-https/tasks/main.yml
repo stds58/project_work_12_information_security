@@ -1,0 +1,151 @@
+---
+- name: Установка Nginx
+  apt:
+    name: nginx
+    update_cache: yes
+    state: present
+
+- name: Создание директории для SSL-сертификатов
+  file:
+    path: /etc/nginx/ssl
+    state: directory
+    mode: '0755'
+
+- name: Забираем .crt и .key с vm_uc через бастион
+  fetch:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item | basename }}"
+    flat: yes
+  loop:
+    - "/etc/ssl/{{ ssl_domain }}.crt"
+    - "/etc/ssl/{{ ssl_domain }}.key"
+  delegate_to: "{{ hostvars['vm_uc']['ansible_host'] }}"
+  run_once: true
+  vars:
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "~/.ssh/terraform_20250320"
+    ansible_ssh_common_args: -o ProxyCommand="ssh -i ~/.ssh/terraform_20250320 -W %h:%p ubuntu@{{ hostvars['vm_bastion']['ansible_host'] }}"
+
+- name: Копируем .crt и .key на vm_nexus
+  copy:
+    src: "/tmp/{{ item | basename }}"
+    dest: "/etc/nginx/ssl/{{ item }}"
+    mode: '0600'
+    owner: root
+  loop:
+    - "{{ ssl_domain }}.crt"
+    - "{{ ssl_domain }}.key"
+
+- name: Устанавливаем OpenJDK 11
+  apt:
+    name: openjdk-11-jdk
+    update_cache: yes
+    state: present
+  become: yes
+
+- name: Скачиваем Nexus Repository Manager
+  get_url:
+    url: "https://download.sonatype.com/nexus/3/nexus-3.80.0-06-linux-x86_64.tar.gz"
+    dest: "/opt/nexus-latest.tar.gz"
+    mode: '0644'
+  become: yes
+
+- name: Создаём пользователя nexus
+  user:
+    name: nexus
+    shell: /bin/bash
+    home: /opt/sonatype/nexus
+    system: yes
+    createhome: no
+  become: yes
+
+- name: Создаём директорию /opt/sonatype
+  file:
+    path: /opt/sonatype
+    state: directory
+    mode: '0755'
+    owner: nexus
+    group: nexus
+  become: yes
+
+- name: Удаляем старую директорию nexus, если существует
+  file:
+    path: "/opt/sonatype/nexus"
+    state: absent
+  become: yes
+
+- name: Удаляем папку nexus-версии, если существует
+  file:
+    path: "/opt/sonatype/{{ nexus_dir.stdout }}"
+    state: absent
+  become: yes
+  when: nexus_dir is defined and nexus_dir.stdout != ''
+
+- name: Распаковываем Nexus вручную через shell
+  shell: |
+    mkdir -p /opt/sonatype/nexus-tmp
+    tar -xzf /opt/nexus-latest.tar.gz -C /opt/sonatype/nexus-tmp --strip-components=1
+  args:
+    chdir: /opt/sonatype/
+  become: yes
+
+- name: Переименовываем временную папку в nexus
+  shell: |
+    mv /opt/sonatype/nexus-tmp /opt/sonatype/nexus
+  args:
+    chdir: /opt/sonatype/
+  become: yes
+
+- name: Создаём директорию sonatype-work для Nexus
+  file:
+    path: "/opt/sonatype/sonatype-work/nexus3/etc/"
+    state: directory
+    mode: '0755'
+    owner: nexus
+    group: nexus
+    recurse: yes
+  become: yes
+
+- name: Выставляем права на папку nexus
+  file:
+    path: "/opt/sonatype/nexus"
+    owner: nexus
+    group: nexus
+    mode: '0755'
+    recurse: yes
+    state: directory
+  become: yes
+
+- name: Копируем шаблон systemd-юнита для Nexus
+  template:
+    src: templates/nexus.service.j2
+    dest: /etc/systemd/system/nexus.service
+    owner: root
+    mode: '0644'
+  become: yes
+
+- name: Перезагружаем systemd
+  command: systemctl daemon-reexec
+  become: yes
+
+- name: Включаем автозапуск и стартуем сервис Nexus
+  service:
+    name: nexus
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Обновление конфигурации Nginx
+  template:
+    src: templates/nginx-https.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    mode: '0644'
+
+- name: Проверка конфигурации Nginx
+  command: nginx -t
+
+- name: Перезапуск Nginx
+  service:
+    name: nginx
+    state: restarted

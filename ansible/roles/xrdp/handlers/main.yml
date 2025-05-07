@@ -1,0 +1,4 @@
+---
+- name: wait 5 seconds after restart
+  ansible.builtin.pause:
+    seconds: 5

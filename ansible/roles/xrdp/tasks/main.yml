@@ -1,0 +1,46 @@
+---
+- name: Исправляем права на /etc/xrdp/key.pem
+  file:
+    path: /etc/xrdp/key.pem
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Добавляем пользователя xrdp в группу ssl-cert (для доступа к ключам)
+  user:
+    name: xrdp
+    groups: ssl-cert
+    append: yes
+
+- name: Исправляем права на домашнюю папку пользователя
+  file:
+    path: /home/ubuntu
+    mode: '0755'
+    owner: ubuntu
+    group: ubuntu
+
+- name: Создаем .xsession для пользователя ubuntu
+  lineinfile:
+    dest: /home/ubuntu/.xsession
+    line: xfce4-session
+    create: yes
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+
+- name: Перезапуск служб xrdp и sesman
+  service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - xrdp
+    - xrdp-sesman
+  notify: wait 5 seconds after restart
+
+- name: Убедиться, что службы xrdp и sesman включены
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+  loop:
+    - xrdp
+    - xrdp-sesman

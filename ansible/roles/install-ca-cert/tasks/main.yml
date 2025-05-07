@@ -1,0 +1,20 @@
+---
+- name: Копируем корневой сертификат с УЦ
+  fetch:
+    src: /etc/ssl/ca.crt
+    dest: /tmp/example-ca.crt
+    flat: yes
+  delegate_to: "{{ hostvars['vm_uc']['ansible_host'] }}"
+  vars:
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "~/.ssh/terraform_20250320"
+    ansible_ssh_common_args: -o ProxyCommand="ssh -i ~/.ssh/terraform_20250320 -W %h:%p ubuntu@{{ hostvars['vm_bastion']['ansible_host'] }}"
+
+- name: Установка корневого сертификата
+  copy:
+    src: /tmp/example-ca.crt
+    dest: /usr/local/share/ca-certificates/example-ca.crt
+    mode: '0644'
+
+- name: Обновление списка доверенных сертификатов
+  command: update-ca-certificates

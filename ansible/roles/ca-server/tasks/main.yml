@@ -1,0 +1,146 @@
+---
+- name: Создаем структуру директорий CA
+  file:
+    path: "/root/ca/{{ item }}"
+    state: directory
+    mode: '0700'
+  loop:
+    - certs
+    - crl
+    - newcerts
+    - private
+    - csr
+
+- name: Проверяем, существует ли index.txt
+  stat:
+    path: /root/ca/index.txt
+  register: index_exists
+
+- name: Создаём index.txt
+  shell: touch /root/ca/index.txt
+  args:
+    chdir: /root/ca
+  when: not index_exists.stat.exists
+
+- name: Проверяем, существует ли serial
+  stat:
+    path: /root/ca/serial
+  register: serial_exists
+
+- name: Создаём serial
+  shell: echo 1000 > /root/ca/serial
+  args:
+    chdir: /root/ca
+  when: not serial_exists.stat.exists
+
+- name: Копируем шаблон openssl.cnf
+  template:
+    src: openssl.cnf.j2
+    dest: /root/ca/openssl.cnf
+    owner: root
+    mode: '0644'
+
+- name: Проверяем, существует ли ключ CA
+  stat:
+    path: /root/ca/private/ca.key.pem
+  register: ca_key_exists
+
+- name: Генерируем приватный ключ корневого CA
+  shell: |
+    cd /root/ca
+    openssl genrsa -out private/ca.key.pem 4096
+  args:
+    chdir: /root/ca
+  when: not ca_key_exists.stat.exists
+
+- name: Проверяем, существует ли сертификат CA
+  stat:
+    path: /root/ca/certs/ca.cert.pem
+  register: ca_cert_exists
+
+- name: Создаем самоподписанный сертификат корневого CA
+  shell: |
+    cd /root/ca
+    openssl req -config openssl.cnf -key private/ca.key.pem -new -x509 -days 3650 -sha256 -out certs/ca.cert.pem
+  args:
+    chdir: /root/ca
+  when: not ca_cert_exists.stat.exists
+
+- name: Проверяем, существует ли приватный ключ сервера
+  stat:
+    path: /root/ca/private/nexus.example.key.pem
+  register: server_key_exists
+
+- name: Генерируем приватный ключ для сервера nexus.example
+  shell: |
+    cd /root/ca
+    openssl genrsa -out private/nexus.example.key.pem 2048
+  args:
+    chdir: /root/ca
+  when: not server_key_exists.stat.exists
+
+- name: Проверяем, существует ли CSR для сервера
+  stat:
+    path: /root/ca/csr/nexus.example.csr.pem
+  register: server_csr_exists
+
+- name: Создаем CSR для сервера nexus.example
+  shell: |
+    cd /root/ca
+    openssl req -config openssl.cnf \
+      -key private/nexus.example.key.pem \
+      -new -sha256 \
+      -out csr/nexus.example.csr.pem \
+      -subj "/C=RU/ST=Moscow/L=Moscow/O=Example Org/OU=IT/CN=nexus.example"
+  args:
+    chdir: /root/ca
+
+- name: Проверяем, существует ли сертификат сервера
+  stat:
+    path: /root/ca/certs/nexus.example.cert.pem
+  register: server_cert_exists
+
+- name: Подписываем CSR и создаём сертификат для nexus.example
+  shell: |
+    cd /root/ca
+    openssl ca -batch -config openssl.cnf -extensions server_cert -days 365 -notext -md sha256 \
+      -in csr/nexus.example.csr.pem \
+      -out certs/nexus.example.cert.pem
+  args:
+    chdir: /root/ca
+  environment:
+    PATH: "{{ ansible_env.PATH }}"
+  when: not server_cert_exists.stat.exists
+
+- name: Подписываем CSR и создаём сертификат для nexus.example
+  shell: |
+    cd /root/ca
+    openssl ca -batch -config openssl.cnf -extensions server_cert -days 365 -notext -md sha256 \
+      -in csr/nexus.example.csr.pem \
+      -out certs/nexus.example.cert.pem
+  args:
+    chdir: /root/ca
+  environment:
+    PATH: "{{ ansible_env.PATH }}"
+  when: not server_cert_exists.stat.exists
+
+- name: Устанавливаем права на файлы
+  file:
+    path: "{{ item }}"
+    mode: '0400'
+    owner: root
+  loop:
+    - /root/ca/private/ca.key.pem
+    - /root/ca/private/nexus.example.key.pem
+
+- name: Копируем сертификаты в отдельные папки для удобства
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: '0644'
+    owner: root
+    remote_src: yes
+  loop:
+    - { src: "/root/ca/certs/ca.cert.pem", dest: "/etc/ssl/ca.crt" }
+    - { src: "/root/ca/certs/nexus.example.cert.pem", dest: "/etc/ssl/nexus.crt" }
+    - { src: "/root/ca/private/nexus.example.key.pem", dest: "/etc/ssl/nexus.key" }

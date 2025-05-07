@@ -1,0 +1,125 @@
+---
+- name: Установка необходимых пакетов
+  apt:
+    name:
+      - nginx
+      - docker.io
+      - curl
+      - openssl
+    update_cache: yes
+
+- name: Создание директории для сертификатов
+  file:
+    path: /etc/ssl/nexus
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Скачивание корневого сертификата rootCA.crt
+  get_url:
+    url: "http://{{ host_uc_ip }}/rootCA.crt"
+    dest: "/etc/ssl/nexus/rootCA.crt"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Скачивание серверного сертификата nexus.crt
+  get_url:
+    url: "http://{{ host_uc_ip }}/nexus.crt"
+    dest: "/etc/ssl/nexus/nexus.crt"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Скачивание приватного ключа nexus.key
+  get_url:
+    url: "http://{{ host_uc_ip }}/nexus.key"
+    dest: "/etc/ssl/nexus/nexus.key"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Проверка содержимого rootCA.crt
+  command: openssl x509 -in /etc/ssl/nexus/rootCA.crt -text -noout
+  changed_when: false
+  args:
+    warn: no
+
+- name: Проверка содержимого nexus.crt
+  command: openssl x509 -in /etc/ssl/nexus/nexus.crt -text -noout
+  register: server_cert_info
+  ignore_errors: yes
+  args:
+    warn: no
+
+- name: Проверяем, совпадает ли CN с ожидаемым
+  assert:
+    that:
+      - "'CN=nexus.example' in server_cert_info.stdout or 'commonName=nexus.example' in server_cert_info.stdout"
+    fail_msg: "Сертификат неверен! Ожидается CN = nexus.example"
+    success_msg: "Сертификат прошёл проверку: CN = nexus.example"
+
+- name: Создание директории для данных Nexus
+  file:
+    path: /nexus-data
+    state: directory
+    mode: '0755'
+    owner: 200
+    group: 200
+
+- name: Удаление старого контейнера (если есть)
+  docker_container:
+    name: nexus
+    state: absent
+
+- name: Запуск нового контейнера Nexus
+  docker_container:
+    name: nexus
+    image: sonatype/nexus3
+    ports:
+      - "8081:8081"
+    volumes:
+      - /nexus-data:/nexus-data
+    user: 200
+    state: started
+    restart_policy: always
+
+- name: Создание конфига Nginx из шаблона
+  template:
+    src: nexus.j2
+    dest: /etc/nginx/sites-available/nexus.conf
+    mode: '0644'
+    owner: root
+    group: root
+  notify: reload nginx
+
+- name: Включение сайта Nginx
+  file:
+    src: /etc/nginx/sites-available/nexus.conf
+    dest: /etc/nginx/sites-enabled/nexus
+    state: link
+
+- name: Проверка конфигурации Nginx
+  command: nginx -t
+  changed_when: false
+
+- name: Перезапуск Nginx
+  service:
+    name: nginx
+    state: restarted
+
+- name: Добавляем запись в /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ nexus_internal_ip }} {{ nexus_server_name }}"
+    create: yes
+    state: present
+  vars:
+    nexus_internal_ip: "{{ hostvars['vm_nexus']['ansible_host'] }}"
+
+- name: Добавляем корневой сертификат в NSS (для Chrome/Chromium)
+  command: certutil -d sql:$HOME/.pki/nssdb -A -t TC -n "UC Root CA" -i /etc/ssl/nexus/rootCA.crt
+  args:
+    warn: no
+  ignore_errors: yes
