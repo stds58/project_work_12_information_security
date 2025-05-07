@@ -96,8 +96,16 @@ output "proverki" {
     # 6. в хромиуме в chrome://settings/certificates импортируй сертификат из /tmp/ca.crt и поставь галки на доверие
     #########################################################################
 
-    #
-    Проверить работу HTTP-сервера на vm-uc
+    # WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!
+    # Host key for 192.168.10.24 has changed and you have requested strict checking
+    # решение
+    wsl ssh-keygen -f ~/.ssh/known_hosts -R 192.168.10.24
+
+    # проверка нексуса
+    systemctl status nexus
+    journalctl -xeu nexus.service
+
+    # Проверить работу HTTP-сервера на vm-uc
     curl -v http://${module.vm_uc.internal_ip_address}/rootCA.crt
     Если не работает — перезапустите контейнер:
     docker stop cert-server
